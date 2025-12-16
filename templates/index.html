@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>YouTube to MP3</title>
+  <style>
+    body {
+      background: #121212;
+      color: white;
+      font-family: Arial;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .box {
+      background: #1f1f1f;
+      padding: 30px;
+      width: 360px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      background: red;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    .bar {
+      width: 100%;
+      background: #333;
+      height: 20px;
+      margin-top: 15px;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      width: 0%;
+      background: #00ff99;
+      transition: width 0.3s;
+    }
+  </style>
+</head>
+<body>
+
+<div class="box" id="formBox">
+  <h2>YouTube → MP3</h2>
+
+  <input id="url" placeholder="Paste YouTube URL">
+  <button onclick="startDownload()">Download</button>
+
+  <div class="bar">
+    <div class="fill" id="fill"></div>
+  </div>
+
+  <p id="status"></p>
+</div>
+
+<div class="box" id="doneBox" style="display:none;">
+  <h2>✅ Download Complete</h2>
+  <p>Your MP3 has been saved to your Downloads folder.</p>
+  <button onclick="resetForm()">Download Another</button>
+</div>
+
+<script>
+let timer;
+
+async function startDownload() {
+  const urlInput = document.getElementById("url");
+  const url = urlInput.value;
+
+  if (!url) {
+    alert("Paste a YouTube URL");
+    return;
+  }
+
+  document.getElementById("status").innerText = "Starting...";
+  document.getElementById("fill").style.width = "0%";
+
+  await fetch("/download", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ url })
+  });
+
+  timer = setInterval(updateProgress, 500);
+}
+
+async function updateProgress() {
+  const res = await fetch("/progress");
+  const data = await res.json();
+
+  document.getElementById("fill").style.width = data.percent + "%";
+  document.getElementById("status").innerText =
+    `${data.status} (${data.percent}%)`;
+
+  if (data.completed) {
+    clearInterval(timer);
+    showCompleted();
+  }
+}
+
+function showCompleted() {
+  // Clear input
+  document.getElementById("url").value = "";
+
+  // Switch UI
+  document.getElementById("formBox").style.display = "none";
+  document.getElementById("doneBox").style.display = "block";
+}
+
+function resetForm() {
+  document.getElementById("formBox").style.display = "block";
+  document.getElementById("doneBox").style.display = "none";
+
+  document.getElementById("status").innerText = "";
+  document.getElementById("fill").style.width = "0%";
+}
+</script>
+
+</body>
+
+</html>
