@@ -14,15 +14,13 @@ download_progress = {"status": "idle", "percent": 0, "message": ""}
 
 def download_audio(url):
     ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s.%(ext)s'),
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-        'progress_hooks': [progress_hook]
-    }
+    'format': 'bestaudio/best',
+    'outtmpl': 'downloads/%(title)s.%(ext)s',
+    'postprocessors': [{'key': 'FFmpegExtractAudio','preferredcodec': 'mp3','preferredquality': '192'}],
+    'progress_hooks': [progress_hook],
+    'cookiefile': 'cookies.txt'   # <--- your exported browser cookies
+}
+
 
     # Reset progress
     download_progress["status"] = "downloading"
