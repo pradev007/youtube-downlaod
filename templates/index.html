@@ -49,13 +49,17 @@
       background: #00ff99;
       transition: width 0.3s;
     }
+
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
 
 <div class="box" id="formBox">
   <h2>YouTube → MP3</h2>
-
   <input id="url" placeholder="Paste YouTube URL">
   <button onclick="startDownload()">Download</button>
 
@@ -77,13 +81,14 @@ let timer;
 
 async function startDownload() {
   const urlInput = document.getElementById("url");
-  const url = urlInput.value;
+  const url = urlInput.value.trim();
 
   if (!url) {
     alert("Paste a YouTube URL");
     return;
   }
 
+  document.getElementById("status").style.color = "white";
   document.getElementById("status").innerText = "Starting...";
   document.getElementById("fill").style.width = "0%";
 
@@ -93,28 +98,35 @@ async function startDownload() {
     body: JSON.stringify({ url })
   });
 
-  timer = setInterval(updateProgress, 500);
+  timer = setInterval(updateProgress, 1000);
 }
 
 async function updateProgress() {
   const res = await fetch("/progress");
   const data = await res.json();
 
-  document.getElementById("fill").style.width = data.percent + "%";
-  document.getElementById("status").innerText =
-    `${data.status} (${data.percent}%)`;
+  // Update progress bar
+  document.getElementById("fill").style.width = (data.percent || 0) + "%";
 
-  if (data.completed) {
+  const statusEl = document.getElementById("status");
+
+  if (data.status === "error") {
+    statusEl.style.color = "red";
+    statusEl.innerText = "❌ Error: " + (data.message || "Unknown error");
+    clearInterval(timer);
+  } else if (data.status === "completed") {
+    statusEl.style.color = "green";
+    statusEl.innerText = "✅ Download completed!";
     clearInterval(timer);
     showCompleted();
+  } else {
+    statusEl.style.color = "white";
+    statusEl.innerText = `${data.status || "downloading"} (${data.percent || 0}%)`;
   }
 }
 
 function showCompleted() {
-  // Clear input
   document.getElementById("url").value = "";
-
-  // Switch UI
   document.getElementById("formBox").style.display = "none";
   document.getElementById("doneBox").style.display = "block";
 }
@@ -122,12 +134,10 @@ function showCompleted() {
 function resetForm() {
   document.getElementById("formBox").style.display = "block";
   document.getElementById("doneBox").style.display = "none";
-
   document.getElementById("status").innerText = "";
   document.getElementById("fill").style.width = "0%";
 }
 </script>
 
 </body>
-
 </html>

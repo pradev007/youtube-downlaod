@@ -8,11 +8,41 @@ app = Flask(__name__)
 DOWNLOAD_FOLDER = "downloads"
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
-progress_data = {
-    "status": "idle",
-    "percent": 0,
-    "completed": False
-}
+# Global dict to track download progress and status
+download_progress = {"status": "idle", "percent": 0, "message": ""}
+
+
+def download_audio(url):
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s.%(ext)s'),
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'progress_hooks': [progress_hook]
+    }
+
+    # Reset progress
+    download_progress["status"] = "downloading"
+    download_progress["percent"] = 0
+    download_progress["message"] = ""
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        download_progress["status"] = "completed"
+        download_progress["percent"] = 100
+        download_progress["message"] = "Download completed successfully!"
+    except yt_dlp.utils.DownloadError as e:
+        download_progress["status"] = "error"
+        download_progress["percent"] = 0
+        download_progress["message"] = str(e)
+    except Exception as e:
+        download_progress["status"] = "error"
+        download_progress["percent"] = 0
+        download_progress["message"] = f"Unexpected error: {str(e)}"
 
 
 def progress_hook(d):
@@ -20,38 +50,9 @@ def progress_hook(d):
         total = d.get('total_bytes') or d.get('total_bytes_estimate')
         downloaded = d.get('downloaded_bytes', 0)
         if total:
-            progress_data["percent"] = int(downloaded / total * 100)
-            progress_data["status"] = "downloading"
-            progress_data["completed"] = False
-
-    elif d['status'] == 'finished':
-        progress_data["percent"] = 100
-        progress_data["status"] = "finished"
-        progress_data["completed"] = True
-
-# added
-
-def download_audio(url):
-    progress_data["percent"] = 0
-    progress_data["status"] = "starting"
-    progress_data["completed"] = False
-
-
-    ydl_opts = {
-    'format': 'bestaudio/best',
-    'outtmpl': f'{DOWNLOAD_FOLDER}/%(title)s.%(ext)s',
-    'progress_hooks': [progress_hook],
-    'noplaylist': True,  # <- THIS PREVENTS PLAYLIST DOWNLOADS
-    'postprocessors': [{
-        'key': 'FFmpegExtractAudio',
-        'preferredcodec': 'mp3',
-        'preferredquality': '192',
-    }],
-}
-
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+            download_progress["percent"] = int(downloaded / total * 100)
+            download_progress["status"] = "downloading"
+            download_progress["message"] = "Downloading..."
 
 
 @app.route("/")
@@ -61,19 +62,19 @@ def index():
 
 @app.route("/download", methods=["POST"])
 def download():
-    url = request.json.get("url")
+    data = request.get_json()
+    url = data.get("url")
     if not url:
-        return jsonify({"error": "URL required"}), 400
+        return jsonify({"status": "error", "message": "No URL provided"}), 400
 
-    thread = threading.Thread(target=download_audio, args=(url,))
-    thread.start()
-
-    return jsonify({"message": "Download started"})
+    # Start download in a separate thread
+    threading.Thread(target=download_audio, args=(url,)).start()
+    return jsonify({"status": "started", "message": "Download started"})
 
 
 @app.route("/progress")
 def progress():
-    return jsonify(progress_data)
+    return jsonify(download_progress)
 
 
 @app.route("/files/<filename>")
